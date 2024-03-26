@@ -1,0 +1,14 @@
+.ENV
+.venv
+.VENV
+env/
+venv/
+VENV/
+ENV/
+env.bak/
+venv.bak/
+settings.ini
+
+db.sqlite3
+
+.git

@@ -1,0 +1,82 @@
+version: '3.9'
+
+services:
+  
+  db:
+    image: postgres:latest
+    container_name: postgres_nikupen
+    environment:
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    env_file:
+      - ./.env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    networks:
+      - main_nikupen
+    healthcheck:
+      test: ["CMD-SHELL", "PGPASSWORD=${DB_PASSWORD} pg_isready -h ${DB_HOST} -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5  
+      start_period: 60s
+    restart: always
+
+  app:
+    build: .
+    image: nikupen_image:0.0.1
+    command: sh -c "python manage.py migrate && gunicorn core.wsgi -b 0.0.0.0:8000"
+    container_name: app_nikupen
+    volumes:
+      - /home/Dockercontainer/Nikupen/Nikupen-Backend/app
+      - static_volume:/home/Dockercontainer/Nikupen/Nikupen-Backend/app/static
+      - media_volume:/home/Dockercontainer/Nikupen/Nikupen-Backend/app/media/upload
+    environment:
+      - DB_HOST=db
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASS=${DB_PASSWORD}
+    networks:
+      - main_nikupen
+    depends_on:
+      - db
+    env_file:
+      - ./.env
+    restart: always
+  
+  nginx: 
+    container_name: nginx_nikupen
+    command: nginx -g 'daemon off;'
+    image: nginx:latest
+    depends_on:
+      - app
+    networks:
+      - main_nikupen
+    ports:
+      - 8065:80
+    restart: always
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - static_volume:/home/Dockercontainer/Nikupen/Nikupen-Backend/app/static
+      - media_volume:/home/Dockercontainer/Nikupen/Nikupen-Backend/app/media/upload
+    healthcheck:
+      test: ["CMD-SHELL", "curl --silent --fail localhost:80/admin/login/?next=/admin/ || exit 1"]
+      interval: 60s
+      timeout: 20s
+      retries: 5
+      start_period: 20s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+
+
+networks:
+  main_nikupen:
+
+volumes:
+  postgres_data:
+  static_volume:
+  media_volume:
